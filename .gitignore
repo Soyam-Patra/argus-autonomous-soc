@@ -1,0 +1,15 @@
+@"
+__pycache__/
+*.py[cod]
+*.db
+.env
+.venv/
+venv/
+node_modules/
+dist/
+build/
+.pytest_cache/
+.coverage
+.vscode/
+.idea/
+"@ | Set-Content .gitignore
