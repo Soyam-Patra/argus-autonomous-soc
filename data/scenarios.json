@@ -1,0 +1,49 @@
+[
+  {
+    "scenario_id": "scenario-001",
+    "name": "Confirmed successful attack",
+    "incident_id": "INC-1042",
+    "alert_id": "ALERT-1042",
+    "expected_outcome": "CONFIRMED_SUCCESS",
+    "description": "Successful exploit evidence is present and source blocking contains the simulated attacker.",
+    "mutable_environment": {
+      "malicious_traffic_active": true,
+      "active_malicious_sources": ["185.22.91.14"],
+      "host_isolated": false,
+      "source_rotation": null
+    }
+  },
+  {
+    "scenario_id": "scenario-002",
+    "name": "False positive blocked exploit",
+    "incident_id": "INC-2041",
+    "alert_id": "ALERT-2041",
+    "expected_outcome": "FAILED_BLOCKED",
+    "description": "WAF block and no execution evidence; response should be restrained in later milestones.",
+    "mutable_environment": {
+      "malicious_traffic_active": false,
+      "active_malicious_sources": [],
+      "host_isolated": false,
+      "source_rotation": null
+    }
+  },
+  {
+    "scenario_id": "scenario-003",
+    "name": "Successful attack with failed first response",
+    "incident_id": "INC-1042",
+    "alert_id": "ALERT-1042",
+    "expected_outcome": "CONFIRMED_SUCCESS_ADAPTATION_REQUIRED",
+    "description": "Primary demo: blocking the first source causes attacker source rotation; host quarantine is required to contain activity.",
+    "mutable_environment": {
+      "malicious_traffic_active": true,
+      "active_malicious_sources": ["185.22.91.14"],
+      "host_isolated": false,
+      "source_rotation": {
+        "trigger": "block_ip",
+        "from": "185.22.91.14",
+        "to": "185.22.91.17",
+        "used": false
+      }
+    }
+  }
+]

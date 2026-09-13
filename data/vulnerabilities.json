@@ -1,0 +1,20 @@
+[
+  {
+    "asset_id": "asset-payments-api",
+    "cve_id": "CVE-2026-1042",
+    "cvss": 9.8,
+    "affected_service": "payments-api",
+    "exploit_available": true,
+    "patched": false,
+    "relevance": "Observed SQL injection payload targets the vulnerable transaction lookup endpoint."
+  },
+  {
+    "asset_id": "asset-portal",
+    "cve_id": "CVE-2025-9981",
+    "cvss": 6.4,
+    "affected_service": "nginx",
+    "exploit_available": false,
+    "patched": true,
+    "relevance": "Probe resembles a known command injection pattern, but this host is patched."
+  }
+]

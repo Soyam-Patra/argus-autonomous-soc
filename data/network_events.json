@@ -1,0 +1,41 @@
+[
+  {
+    "event_id": "net-1001",
+    "timestamp": "2026-09-13T11:32:02Z",
+    "src_ip": "185.22.91.14",
+    "dest_ip": "10.0.1.25",
+    "dest_port": 443,
+    "protocol": "HTTPS",
+    "request_count": 28,
+    "bytes_in": 18400,
+    "bytes_out": 93200,
+    "http": {"method": "POST", "path": "/api/v1/transactions/search", "status": 500},
+    "classification": "exploit_attempt"
+  },
+  {
+    "event_id": "net-1002",
+    "timestamp": "2026-09-13T11:32:09Z",
+    "src_ip": "185.22.91.17",
+    "dest_ip": "10.0.1.25",
+    "dest_port": 443,
+    "protocol": "HTTPS",
+    "request_count": 14,
+    "bytes_in": 8800,
+    "bytes_out": 45700,
+    "http": {"method": "POST", "path": "/api/v1/transactions/search", "status": 500},
+    "classification": "continued_exploit_after_rotation"
+  },
+  {
+    "event_id": "net-2001",
+    "timestamp": "2026-09-13T11:40:01Z",
+    "src_ip": "203.0.113.55",
+    "dest_ip": "10.0.2.40",
+    "dest_port": 443,
+    "protocol": "HTTPS",
+    "request_count": 4,
+    "bytes_in": 1300,
+    "bytes_out": 900,
+    "http": {"method": "GET", "path": "/login", "status": 403},
+    "classification": "blocked_probe"
+  }
+]

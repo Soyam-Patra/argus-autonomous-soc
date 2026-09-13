@@ -1,0 +1,31 @@
+[
+  {
+    "asset_id": "asset-payments-api",
+    "hostname": "payments-api",
+    "ip": "10.0.1.25",
+    "os": "Ubuntu 22.04",
+    "services": [
+      {"name": "nginx", "port": 443, "exposed": true},
+      {"name": "payments-api", "port": 8443, "exposed": false}
+    ],
+    "owner": "payments-platform",
+    "criticality": "critical",
+    "internet_exposure": true,
+    "environment": "production-simulated",
+    "application": "Payment authorization API"
+  },
+  {
+    "asset_id": "asset-portal",
+    "hostname": "employee-portal",
+    "ip": "10.0.2.40",
+    "os": "Debian 12",
+    "services": [
+      {"name": "nginx", "port": 443, "exposed": true}
+    ],
+    "owner": "it-apps",
+    "criticality": "medium",
+    "internet_exposure": false,
+    "environment": "staging-simulated",
+    "application": "Employee portal"
+  }
+]
