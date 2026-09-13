@@ -34,7 +34,7 @@ The entire SOC environment is simulated and sandboxed. No real firewall, product
 
 ### Demo Video
 
-**[YouTube Demo — add final video link here](https://youtu.be/QPbxsV44LtI?si=WN2FqfwetzzCjkQR)**
+**[YouTube Demo](https://youtu.be/QPbxsV44LtI?si=WN2FqfwetzzCjkQR)**
 
 > The video demonstrates the primary adaptive intrusion scenario step-by-step, including evidence collection, attack assessment, first response, failed verification, hypothesis revision, adaptive response, and successful containment.
 
