@@ -13,6 +13,28 @@ class HypothesisOutcome(str, Enum):
     UNKNOWN = "UNKNOWN"
 
 
+class AttackOutcome(str, Enum):
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    INCONCLUSIVE = "INCONCLUSIVE"
+    UNKNOWN = "UNKNOWN"
+
+
+class ResponseStatus(str, Enum):
+    NOT_ATTEMPTED = "NOT_ATTEMPTED"
+    PROPOSED = "PROPOSED"
+    APPLIED = "APPLIED"
+    DENIED = "DENIED"
+
+
+class ContainmentStatus(str, Enum):
+    NOT_ATTEMPTED = "NOT_ATTEMPTED"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    ACTIVE = "ACTIVE"
+    NOT_CONTAINED = "NOT_CONTAINED"
+
+
 class DecisionType(str, Enum):
     GATHER_EVIDENCE = "GATHER_EVIDENCE"
     ASSESS = "ASSESS"

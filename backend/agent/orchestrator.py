@@ -27,15 +27,67 @@ class InvestigationOrchestrator:
             if decision_type in {DecisionType.GATHER_EVIDENCE, DecisionType.RESPOND, DecisionType.VERIFY}:
                 if decision_type == DecisionType.RESPOND:
                     self.policy_guard.validate(decision, state)
+                    if decision.tool == "quarantine_host":
+                        state.add_event(
+                            "ADAPTIVE_RESPONSE_SELECTED",
+                            "Adaptive response selected: quarantine affected host",
+                            decision=decision.decision,
+                            tool=str(decision.tool),
+                            rationale=decision.rationale,
+                            confidence=decision.confidence,
+                        )
                 if decision.tool is None:
                     raise ValueError("Tool decision did not include a tool name.")
                 evidence_kind, result = execute_tool(decision.tool, decision.arguments)
                 state.add_evidence(evidence_kind, result)
+                if decision_type == DecisionType.RESPOND:
+                    state.add_event(
+                        "RESPONSE_ATTEMPTED",
+                        f"Response attempted: {result.get('action')} {result.get('status')}",
+                        decision=decision.decision,
+                        tool=str(decision.tool),
+                        rationale=decision.rationale,
+                        confidence=decision.confidence,
+                    )
                 state.add_event(
                     "TOOL_RESULT",
                     f"{decision.tool} returned {self._summarize_result(result)}",
                     tool=str(decision.tool),
                 )
+                if decision_type == DecisionType.GATHER_EVIDENCE and state.containment_status.value == "FAILED":
+                    state.add_event(
+                        "NEW_EVIDENCE_FOUND",
+                        f"New evidence found after containment failure: {self._summarize_result(result)}",
+                        tool=str(decision.tool),
+                        rationale=decision.rationale,
+                        confidence=decision.confidence,
+                    )
+                if decision_type == DecisionType.VERIFY:
+                    if result.get("verification_status") == "failed":
+                        state.add_event(
+                            "VERIFICATION_FAILED",
+                            "Verification failed: malicious traffic is still active.",
+                            tool=str(decision.tool),
+                            confidence=decision.confidence,
+                        )
+                        state.add_event(
+                            "CONTAINMENT_FAILURE_DETECTED",
+                            "Containment failure detected: active threat remains after the response.",
+                            tool=str(decision.tool),
+                            confidence=decision.confidence,
+                        )
+                        state.add_event(
+                            "HYPOTHESIS_REVISED",
+                            "Attack outcome remains SUCCESS while containment status is FAILED.",
+                            confidence=state.attack_confidence,
+                        )
+                    else:
+                        state.add_event(
+                            "RESPONSE_VERIFIED",
+                            "Response verified: containment succeeded.",
+                            tool=str(decision.tool),
+                            confidence=decision.confidence,
+                        )
                 continue
 
             if decision_type == DecisionType.ASSESS:

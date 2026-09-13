@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from .schemas import EvidenceKind, Hypothesis, HypothesisOutcome
+from .schemas import AttackOutcome, ContainmentStatus, EvidenceKind, Hypothesis, HypothesisOutcome, ResponseStatus
 
 
 class InvestigationEvent(BaseModel):
@@ -35,6 +35,12 @@ class InvestigationState(BaseModel):
     alert_id: str
     run_id: str = Field(default_factory=lambda: f"RUN-{uuid4().hex[:8].upper()}")
     hypothesis: Hypothesis = Field(default_factory=Hypothesis)
+    attack_outcome: AttackOutcome = AttackOutcome.UNKNOWN
+    attack_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    response_status: ResponseStatus = ResponseStatus.NOT_ATTEMPTED
+    containment_status: ContainmentStatus = ContainmentStatus.NOT_ATTEMPTED
+    active_threat: bool = False
+    denied_actions: list[dict[str, Any]] = Field(default_factory=list)
     uncertainties: list[str] = Field(default_factory=lambda: ["Alert details have not been retrieved."])
     evidence: EvidenceStore = Field(default_factory=EvidenceStore)
     actions_taken: list[dict[str, Any]] = Field(default_factory=list)
@@ -89,9 +95,13 @@ class InvestigationState(BaseModel):
         elif kind == "response":
             self.evidence.response.append(result)
             self.actions_taken.append(result)
+            self.response_status = ResponseStatus.APPLIED
+            self.containment_status = ContainmentStatus.ACTIVE
             self._add_uncertainty("Did the response actually stop malicious activity?")
         elif kind == "verification":
             self.evidence.verification.append(result)
+            self.active_threat = bool(result.get("malicious_traffic"))
+            self.containment_status = ContainmentStatus.FAILED if self.active_threat else ContainmentStatus.SUCCESS
             self._remove_uncertainty("Did the response actually stop malicious activity?")
         self.recalculate_hypothesis()
 
@@ -109,7 +119,10 @@ class InvestigationState(BaseModel):
         else:
             outcome = HypothesisOutcome.UNKNOWN
             rationale = "Evidence is still insufficient to determine attack outcome."
-        self.hypothesis = Hypothesis(outcome=outcome, confidence=min(max(score / 100.0, 0.0), 1.0), rationale=rationale)
+        confidence = min(max(score / 100.0, 0.0), 0.95)
+        self.attack_outcome = AttackOutcome(outcome.value) if outcome != HypothesisOutcome.UNKNOWN else AttackOutcome.UNKNOWN
+        self.attack_confidence = confidence
+        self.hypothesis = Hypothesis(outcome=outcome, confidence=confidence, rationale=rationale)
 
     def evidence_score(self) -> int:
         score = 0
@@ -141,6 +154,11 @@ class InvestigationState(BaseModel):
             "alert_id": self.alert_id,
             "verdict": self.hypothesis.outcome.value,
             "confidence": self.hypothesis.confidence,
+            "attack_outcome": self.attack_outcome.value,
+            "attack_confidence": self.attack_confidence,
+            "response_status": self.response_status.value,
+            "containment_status": self.containment_status.value,
+            "active_threat": self.active_threat,
             "rationale": self.hypothesis.rationale,
             "evidence_score": self.evidence_score(),
             "actions_taken": self.actions_taken,
@@ -166,3 +184,25 @@ class InvestigationState(BaseModel):
     def _replace_uncertainty(self, old: str, new: str) -> None:
         self._remove_uncertainty(old)
         self._add_uncertainty(new)
+
+    def latest_verification(self) -> dict[str, Any] | None:
+        return self.evidence.verification[-1] if self.evidence.verification else None
+
+    def has_unverified_response(self) -> bool:
+        return len(self.evidence.response) > len(self.evidence.verification)
+
+    def has_network_evidence_for_source(self, source_ip: str) -> bool:
+        return any(item.get("src_ip") == source_ip for item in self.evidence.network)
+
+    def record_human_override(self, action: str, target: str, decision: str, reason: str | None = None) -> None:
+        normalized = decision.upper()
+        self.denied_actions.append(
+            {
+                "action": action,
+                "target": target,
+                "decision": normalized,
+                "reason": reason,
+            }
+        )
+        if normalized == "DENY":
+            self.response_status = ResponseStatus.DENIED

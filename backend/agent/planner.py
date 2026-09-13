@@ -4,7 +4,7 @@ import json
 import os
 from typing import Protocol
 
-from .schemas import AgentDecision, DecisionType, HypothesisOutcome, ToolName, ToolSpec
+from .schemas import AgentDecision, ContainmentStatus, DecisionType, HypothesisOutcome, ToolName, ToolSpec
 from .state import InvestigationState
 
 
@@ -98,16 +98,7 @@ class DeterministicFallbackPlanner:
 
         state.recalculate_hypothesis()
         if state.hypothesis.outcome == HypothesisOutcome.SUCCESS:
-            if not state.actions_taken and ToolName.FIREWALL_BLOCK_IP in tool_names:
-                return AgentDecision(
-                    decision=DecisionType.RESPOND,
-                    tool=ToolName.FIREWALL_BLOCK_IP,
-                    arguments={"ip": alert["src_ip"]},
-                    rationale="Compromise is supported by execution evidence, so a bounded simulated source block is justified.",
-                    confidence=state.hypothesis.confidence,
-                    evidence_used=["vulnerabilities", "network", "server_logs"],
-                )
-            if state.actions_taken and not state.evidence.verification and ToolName.VERIFY_ENVIRONMENT in tool_names:
+            if state.has_unverified_response() and ToolName.VERIFY_ENVIRONMENT in tool_names:
                 return AgentDecision(
                     decision=DecisionType.VERIFY,
                     tool=ToolName.VERIFY_ENVIRONMENT,
@@ -115,6 +106,53 @@ class DeterministicFallbackPlanner:
                     rationale="A simulated response was applied, so the environment must be checked before declaring containment.",
                     confidence=state.hypothesis.confidence,
                     evidence_used=["response"],
+                )
+
+            latest_verification = state.latest_verification()
+            if state.containment_status == ContainmentStatus.FAILED and latest_verification:
+                active_sources = latest_verification.get("active_sources", [])
+                uninspected_sources = [
+                    source for source in active_sources if not state.has_network_evidence_for_source(source)
+                ]
+                if uninspected_sources and ToolName.GET_NETWORK_EVIDENCE in tool_names:
+                    return AgentDecision(
+                        decision=DecisionType.GATHER_EVIDENCE,
+                        tool=ToolName.GET_NETWORK_EVIDENCE,
+                        arguments={"host": alert["dest_ip"], "source_ip": uninspected_sources[0]},
+                        rationale="Verification found continued malicious traffic from a source not yet inspected in the investigation evidence.",
+                        confidence=state.hypothesis.confidence,
+                        evidence_used=["verification", "environment"],
+                    )
+
+                if (
+                    state.active_threat
+                    and asset
+                    and self._action_taken(state, "block_ip")
+                    and not self._action_taken(state, "quarantine_host")
+                    and not self._response_denied(state, "quarantine_host", asset["asset_id"])
+                    and ToolName.QUARANTINE_HOST in tool_names
+                ):
+                    return AgentDecision(
+                        decision=DecisionType.RESPOND,
+                        tool=ToolName.QUARANTINE_HOST,
+                        arguments={"asset_id": asset["asset_id"]},
+                        rationale="Current verification and network evidence show the source-IP block did not contain active malicious traffic, so a different bounded response is required.",
+                        confidence=state.hypothesis.confidence,
+                        evidence_used=["verification", "network", "response"],
+                    )
+
+            if (
+                not state.actions_taken
+                and not self._response_denied(state, "block_ip", alert["src_ip"])
+                and ToolName.FIREWALL_BLOCK_IP in tool_names
+            ):
+                return AgentDecision(
+                    decision=DecisionType.RESPOND,
+                    tool=ToolName.FIREWALL_BLOCK_IP,
+                    arguments={"ip": alert["src_ip"]},
+                    rationale="Compromise is supported by execution evidence, so a bounded simulated source block is justified.",
+                    confidence=state.hypothesis.confidence,
+                    evidence_used=["vulnerabilities", "network", "server_logs"],
                 )
 
         if state.hypothesis.outcome in {HypothesisOutcome.SUCCESS, HypothesisOutcome.FAILED, HypothesisOutcome.INCONCLUSIVE}:
@@ -151,6 +189,15 @@ class DeterministicFallbackPlanner:
         if state.evidence.verification:
             labels.append("verification")
         return labels
+
+    def _action_taken(self, state: InvestigationState, action: str) -> bool:
+        return any(item.get("action") == action for item in state.actions_taken)
+
+    def _response_denied(self, state: InvestigationState, action: str, target: str) -> bool:
+        return any(
+            item.get("decision") == "DENY" and item.get("action") == action and item.get("target") == target
+            for item in state.denied_actions
+        )
 
 
 class CompositePlanner:
