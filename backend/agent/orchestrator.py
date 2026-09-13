@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from backend.environment.simulator import ArgusSimulator
 from backend.tools.runtime import get_simulator, reset_simulator
 
 from .planner import CompositePlanner
@@ -18,8 +19,20 @@ class InvestigationOrchestrator:
         simulator = reset_simulator(scenario_id)
         state = InvestigationState(incident_id=simulator.scenario.incident_id, alert_id=simulator.scenario.alert_id)
         state.add_event("START", "ALERT RECEIVED")
+        return self.run_steps(state, simulator, max_steps=max_steps)
 
+    def continue_run(self, state: InvestigationState, max_steps: int = 12) -> InvestigationState:
+        return self.run_steps(state, get_simulator(), max_steps=max_steps)
+
+    def run_steps(
+        self,
+        state: InvestigationState,
+        simulator: ArgusSimulator,
+        max_steps: int = 12,
+    ) -> InvestigationState:
         for _ in range(max_steps):
+            if state.complete:
+                break
             decision = self.planner.decide(state, available_tools(), simulator.snapshot())
             self._record_decision(state, decision)
 
